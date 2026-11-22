@@ -6,7 +6,7 @@
 // survive a UTF-8 round-trip. After writing, the file is read back and
 // compared byte for byte, then chmodded 0644 so the grader can collect it.
 
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const PLAN =
@@ -48,6 +48,22 @@ function main(): void {
   const delivered = readFileSync(target);
   if (!delivered.equals(encoded)) {
     throw new Error("entry.txt does not match the plan byte for byte");
+  }
+
+  // Verify the grader-collection requirements directly: the file must be
+  // readable by every user (mode exactly 0644) and exactly the plan's
+  // bytes (no truncation or trailing data), rather than assuming chmod
+  // and the write behaved as asked.
+  const info = statSync(target);
+  if ((info.mode & 0o777) !== 0o644) {
+    throw new Error(
+      `entry.txt mode is 0${(info.mode & 0o777).toString(8)}, expected 0644`,
+    );
+  }
+  if (info.size !== encoded.length) {
+    throw new Error(
+      `entry.txt is ${info.size} bytes, expected ${encoded.length}`,
+    );
   }
 }
 
